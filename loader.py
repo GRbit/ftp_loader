@@ -1,3 +1,7 @@
+# TODO symlinks check
+# TODO log sended data
+# TODO send in chunks
+
 import sys
 import os
 import argparse
@@ -84,15 +88,35 @@ def parse_connection(conn):
         return parsed_conn
 
 
-def upload_file(from_path, dest_path, ftp):
+def upload_file(src, dest, ftp):
     """ Uploads one file to ftp server
 
-    :type from_path: str or unicode
-    :type dest_path: str or unicode
+    :type src: str or unicode
+    :type dest: str or unicode
     :type ftp: ftput.FTP
     :rtype: bool
     """
-    return ftp.store(from_path, dest_path)
+    return ftp.store(src, dest)
+
+
+def upload_dir(src, dest, ftp):
+    """ Uploads one file to ftp server
+
+    :type src: str or unicode
+    :type dest: str or unicode
+    :type ftp: ftput.FTP
+    :rtype: bool
+    """
+    if ftp.isdir(dest):
+        dest = os.path.join(dest, os.path.basename(src))
+        # TODO check other options
+    ftp.mkdir(dest)
+    for name in os.listdir(src):
+        if os.path.isdir(os.path.join(src, name)):
+            upload_dir(os.path.join(src, name), os.path.join(dest, name), ftp)
+        else:
+            upload_file(os.path.join(src, name), os.path.join(dest, name), ftp)
+    return True
 
 
 def upload(src, conn_str, verify, debug):
@@ -123,22 +147,21 @@ def upload(src, conn_str, verify, debug):
             dest['path'] += os.path.basename(src)
         return upload_file(src, dest['path'], ftp)
     elif os.path.isdir(src):
-        # upload dir
-        pass
+        return upload_dir(src, dest['path'], ftp)
     sys.stderr.write("Error: 'def upload' incorrect file path\n" +
                      src + "\n")
     sys.exit(2)
 
 
-def download_file(from_path, dest_path, ftp):
+def download_file(src, dest, ftp):
     """
 
-    :type from_path: str or unicode
-    :type dest_path: str or unicode
+    :type src: str or unicode
+    :type dest: str or unicode
     :type ftp: ftput.FTP
     :rtype: bool
     """
-    return ftp.retrieve(from_path, dest_path)
+    return ftp.retrieve(src, dest)
 
 
 def download(conn_str, dest, verify, debug):

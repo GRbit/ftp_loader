@@ -164,6 +164,27 @@ def download_file(src, dest, ftp):
     return ftp.retrieve(src, dest)
 
 
+def download_dir(src, dest, ftp):
+    """
+
+    :type src:
+    :type dest:
+    :type ftp:
+    :rtype bool"
+    """
+    print('DD', src, dest)
+    if os.path.isdir(dest):
+        dest = os.path.join(dest, os.path.basename(src))
+        # TODO check other options
+    os.mkdir(dest)
+    for name in ftp.ls(src):
+        if ftp.isdir(name):
+            download_dir(name, os.path.join(dest, os.path.basename(name)), ftp)
+        else:
+            download_file(name, os.path.join(dest, os.path.basename(name)), ftp)
+    return True
+
+
 def download(conn_str, dest, verify, debug):
     """
 
@@ -187,9 +208,7 @@ def download(conn_str, dest, verify, debug):
         debug=debug
     )
     if ftp.isdir(src['path']):
-        # download dir
-        print(src['path'], "is dir")
-        pass
+        return download_dir(src['path'], dest, ftp)
     else:
         if os.path.isfile(dest):
             sys.stderr.write("Error: file '" + dest + "' already exist\n")

@@ -189,6 +189,8 @@ def download_dir(src, dest, ftp, overwrite=False):
             # TODO overwrite handle
             return True
     for name in ftp.ls(src):
+        if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
+            continue
         if ftp.isdir(name):
             download_dir(name, os.path.join(dest, os.path.basename(name)), ftp, overwrite)
         else:

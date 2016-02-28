@@ -1,6 +1,6 @@
-# TODO symlinks check
-# TODO log sended data
-# TODO send in chunks
+# TODO overwrite check
+# TODO log info about transmitted data
+# TODO resume using log files
 
 import sys
 import os
@@ -40,8 +40,8 @@ def get_options():
         help="set debug level"
     )
     args.add_argument(
-        "-v",
-        "--verify",
+        "-o",
+        "--overwrite",
         type=bool,
         default=False,
         help="path from directory/file will be loaded"
@@ -99,18 +99,24 @@ def upload_file(src, dest, ftp):
     return ftp.store(src, dest)
 
 
-def upload_dir(src, dest, ftp):
-    """ Uploads one file to ftp server
+def upload_dir(src, dest, ftp, overwrite=False):
+    """ Uploads dir to ftp server
 
     :type src: str or unicode
     :type dest: str or unicode
     :type ftp: ftput.FTP
+    :type overwrite: bool
     :rtype: bool
     """
-    if ftp.isdir(dest):
-        dest = os.path.join(dest, os.path.basename(src))
-        # TODO check other options
-    ftp.mkdir(dest)
+    if not ftp.isdir(dest) and not ftp.isfile(dest):
+        ftp.mkdir(dest)
+    elif ftp.isfile(dest):
+        if overwrite:
+            ftp.rm(dest)
+            ftp.mkdir(dest)
+        else:
+            # TODO overwrite handle
+            return True
     for name in os.listdir(src):
         if os.path.isdir(os.path.join(src, name)):
             upload_dir(os.path.join(src, name), os.path.join(dest, name), ftp)
@@ -119,12 +125,12 @@ def upload_dir(src, dest, ftp):
     return True
 
 
-def upload(src, conn_str, verify, debug):
+def upload(src, conn_str, overwrite=False, debug=0):
     """
 
     :type src: str or unicode
     :type conn_str: str or unicode
-    :type verify: bool
+    :type overwrite: bool
     :type debug: int
     :rtype: bool
     """
@@ -142,12 +148,12 @@ def upload(src, conn_str, verify, debug):
         port=dest['port'],
         debug=debug
     )
+    if ftp.isdir(dest['path']):
+        dest['path'] = os.path.join(dest['path'], os.path.basename(src))
     if os.path.isfile(src):
-        if not os.path.basename(dest['path']):
-            dest['path'] += os.path.basename(src)
         return upload_file(src, dest['path'], ftp)
     elif os.path.isdir(src):
-        return upload_dir(src, dest['path'], ftp)
+        return upload_dir(src, dest['path'], ftp, overwrite)
     sys.stderr.write("Error: 'def upload' incorrect file path\n" +
                      src + "\n")
     sys.exit(2)
@@ -164,33 +170,38 @@ def download_file(src, dest, ftp):
     return ftp.retrieve(src, dest)
 
 
-def download_dir(src, dest, ftp):
+def download_dir(src, dest, ftp, overwrite=False):
     """
 
-    :type src:
-    :type dest:
-    :type ftp:
+    :type src: str or unicode
+    :type dest: str or unicode
+    :type ftp: ftput.FTP
+    :type overwrite: bool
     :rtype bool"
     """
-    print('DD', src, dest)
-    if os.path.isdir(dest):
-        dest = os.path.join(dest, os.path.basename(src))
-        # TODO check other options
-    os.mkdir(dest)
+    if not os.path.isdir(dest) and not os.path.isfile(dest):
+        os.mkdir(dest)
+    elif os.path.isfile(dest):
+        if overwrite:
+            os.remove(dest)
+            os.mkdir(dest)
+        else:
+            # TODO overwrite handle
+            return True
     for name in ftp.ls(src):
         if ftp.isdir(name):
-            download_dir(name, os.path.join(dest, os.path.basename(name)), ftp)
+            download_dir(name, os.path.join(dest, os.path.basename(name)), ftp, overwrite)
         else:
             download_file(name, os.path.join(dest, os.path.basename(name)), ftp)
     return True
 
 
-def download(conn_str, dest, verify, debug):
+def download(conn_str, dest, overwrite=False, debug=0):
     """
 
     :type conn_str: str or unicode
     :type dest: str or unicode
-    :type verify: bool
+    :type overwrite: bool
     :type debug: int
     """
     src = parse_connection(conn_str)
@@ -208,18 +219,16 @@ def download(conn_str, dest, verify, debug):
         debug=debug
     )
     if ftp.isdir(src['path']):
-        return download_dir(src['path'], dest, ftp)
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src['path']))
+        return download_dir(src['path'], dest, ftp, overwrite)
     else:
-        if os.path.isfile(dest):
+        if os.path.isfile(dest) and not overwrite:
             sys.stderr.write("Error: file '" + dest + "' already exist\n")
             sys.exit(111)
         if os.path.isdir(dest):
             dest = os.path.join(dest, os.path.basename(src['path']))
         return download_file(src['path'], dest, ftp)
-    sys.stderr.write("Error: 'def download' incorrect file path\n" +
-                     src['path'] + "\n")
-    sys.exit(2)
-    pass
 
 
 def main():
@@ -231,9 +240,9 @@ def main():
         sys.stderr.write("Error: 'to' isn't set\n")
         sys.exit(3)
     if args.fromm.startswith('ftp://'):
-        download(args.fromm, args.to, args.verify, args.debug)
+        download(args.fromm, args.to, args.overwrite, args.debug)
     elif args.to.startswith('ftp://'):
-        upload(args.fromm, args.to, args.verify, args.debug)
+        upload(args.fromm, args.to, args.overwrite, args.debug)
     else:
         sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
         sys.exit(3)

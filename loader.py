@@ -88,149 +88,158 @@ def parse_connection(conn):
         return parsed_conn
 
 
-def upload_file(src, dest, ftp):
-    """ Uploads one file to ftp server
+class TransferTask:
 
-    :type src: str or unicode
-    :type dest: str or unicode
-    :type ftp: ftput.FTP
-    :rtype: bool
-    """
-    return ftp.store(src, dest)
+    def __init__(self, src, dest, overwrite, debug):
+        """
+        :type src: str or unicode
+        :type dest: str or unicode
+        :type overwrite: bool
+        :type debug: int
+        """
+        self.src = src
+        self.dest = dest
+        self.overwrite = overwrite
+        self.debug = debug
+        self.ftp = None
 
-
-def upload_dir(src, dest, ftp, overwrite=False):
-    """ Uploads dir to ftp server
-
-    :type src: str or unicode
-    :type dest: str or unicode
-    :type ftp: ftput.FTP
-    :type overwrite: bool
-    :rtype: bool
-    """
-    if not ftp.isdir(dest) and not ftp.isfile(dest):
-        ftp.mkdir(dest)
-    elif ftp.isfile(dest):
-        if overwrite:
-            ftp.rm(dest)
-            ftp.mkdir(dest)
+    def start(self):
+        if self.src.startswith('ftp://'):
+            self.download(self.src, self.dest)
+        elif self.dest.startswith('ftp://'):
+            self.upload(self.src, self.dest)
         else:
-            # TODO overwrite handle
-            return True
-    for name in os.listdir(src):
-        if os.path.isdir(os.path.join(src, name)):
-            upload_dir(os.path.join(src, name), os.path.join(dest, name), ftp)
-        else:
-            upload_file(os.path.join(src, name), os.path.join(dest, name), ftp)
-    return True
+            sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
+            sys.exit(3)
 
+    def upload_file(self, src, dest):
+        """ Uploads one file to ftp server
 
-def upload(src, conn_str, overwrite=False, debug=0):
-    """
+        :type src: str or unicode
+        :type dest: str or unicode
+        :rtype: bool
+        """
+        return self.ftp.store(src, dest)
 
-    :type src: str or unicode
-    :type conn_str: str or unicode
-    :type overwrite: bool
-    :type debug: int
-    :rtype: bool
-    """
-    dest = parse_connection(conn_str)
-    if debug:
-        print("Parsed connection:\n", dest)
-    if not dest:
-        sys.stderr.write("Error: can't parse connection string\n" +
-                         conn_str + "\n")
+    def upload_dir(self, src, dest):
+        """ Uploads dir to ftp server
+
+        :type src: str or unicode
+        :type dest: str or unicode
+        :rtype: bool
+        """
+        if not self.ftp.isdir(dest) and not self.ftp.isfile(dest):
+            self.ftp.mkdir(dest)
+        elif self.ftp.isfile(dest):
+            if self.overwrite:
+                self.ftp.rm(dest)
+                self.ftp.mkdir(dest)
+            else:
+                # TODO overwrite handle
+                return True
+        for name in os.listdir(src):
+            if os.path.isdir(os.path.join(src, name)):
+                self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
+            else:
+                self.upload_file(os.path.join(src, name), os.path.join(dest, name))
+        return True
+
+    def upload(self, src, conn_str):
+        """
+
+        :type src: str or unicode
+        :type conn_str: str or unicode
+        :rtype: bool
+        """
+        self.dest = parse_connection(conn_str)
+        if self.debug:
+            print("Parsed connection:\n", self.dest)
+        if not self.dest:
+            sys.stderr.write("Error: can't parse connection string\n" +
+                             conn_str + "\n")
+            sys.exit(2)
+        self.ftp = ftput.FTP(
+            host=self.dest['host'],
+            user=self.dest['user'],
+            passwd=self.dest['passwd'],
+            port=self.dest['port'],
+            debug=self.debug
+        )
+        if self.ftp.isdir(self.dest['path']):
+            self.dest['path'] = os.path.join(self.dest['path'], os.path.basename(src))
+        if os.path.isfile(src):
+            return self.upload_file(src, self.dest['path'])
+        elif os.path.isdir(src):
+            return self.upload_dir(src, self.dest['path'])
+        sys.stderr.write("Error: 'upload()' incorrect file path\n" +
+                         src + "\n")
         sys.exit(2)
-    ftp = ftput.FTP(
-        host=dest['host'],
-        user=dest['user'],
-        passwd=dest['passwd'],
-        port=dest['port'],
-        debug=debug
-    )
-    if ftp.isdir(dest['path']):
-        dest['path'] = os.path.join(dest['path'], os.path.basename(src))
-    if os.path.isfile(src):
-        return upload_file(src, dest['path'], ftp)
-    elif os.path.isdir(src):
-        return upload_dir(src, dest['path'], ftp, overwrite)
-    sys.stderr.write("Error: 'def upload' incorrect file path\n" +
-                     src + "\n")
-    sys.exit(2)
 
+    def download_file(self, src, dest):
+        """
 
-def download_file(src, dest, ftp):
-    """
+        :type src: str or unicode
+        :type dest: str or unicode
+        :rtype: bool
+        """
+        return self.ftp.retrieve(src, dest)
 
-    :type src: str or unicode
-    :type dest: str or unicode
-    :type ftp: ftput.FTP
-    :rtype: bool
-    """
-    return ftp.retrieve(src, dest)
+    def download_dir(self, src, dest):
+        """
 
-
-def download_dir(src, dest, ftp, overwrite=False):
-    """
-
-    :type src: str or unicode
-    :type dest: str or unicode
-    :type ftp: ftput.FTP
-    :type overwrite: bool
-    :rtype bool"
-    """
-    if not os.path.isdir(dest) and not os.path.isfile(dest):
-        os.mkdir(dest)
-    elif os.path.isfile(dest):
-        if overwrite:
-            os.remove(dest)
+        :type src: str or unicode
+        :type dest: str or unicode
+        :rtype bool"
+        """
+        if not os.path.isdir(dest) and not os.path.isfile(dest):
             os.mkdir(dest)
+        elif os.path.isfile(dest):
+            if self.overwrite:
+                os.remove(dest)
+                os.mkdir(dest)
+            else:
+                # TODO overwrite handle
+                return True
+        for name in self.ftp.ls(src):
+            if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
+                continue
+            if self.ftp.isdir(name):
+                self.download_dir(name, os.path.join(dest, os.path.basename(name)))
+            else:
+                self.download_file(name, os.path.join(dest, os.path.basename(name)))
+        return True
+
+    def download(self, conn_str, dest):
+        """
+
+        :type conn_str: str or unicode
+        :type dest: str or unicode
+        """
+        self.src = parse_connection(conn_str)
+        if self.debug:
+            print("Parsed connection:\n", self.src)
+        if not self.src:
+            sys.stderr.write("Error: 'download()' can't parse connection string\n" +
+                             conn_str + "\n")
+            sys.exit(2)
+        self.ftp = ftput.FTP(
+            host=self.src['host'],
+            user=self.src['user'],
+            passwd=self.src['passwd'],
+            port=self.src['port'],
+            debug=self.debug
+        )
+        if self.ftp.isdir(self.src['path']):
+            if os.path.isdir(dest):
+                dest = os.path.join(dest, os.path.basename(self.src['path']))
+            return self.download_dir(self.src['path'], dest)
         else:
-            # TODO overwrite handle
-            return True
-    for name in ftp.ls(src):
-        if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
-            continue
-        if ftp.isdir(name):
-            download_dir(name, os.path.join(dest, os.path.basename(name)), ftp, overwrite)
-        else:
-            download_file(name, os.path.join(dest, os.path.basename(name)), ftp)
-    return True
-
-
-def download(conn_str, dest, overwrite=False, debug=0):
-    """
-
-    :type conn_str: str or unicode
-    :type dest: str or unicode
-    :type overwrite: bool
-    :type debug: int
-    """
-    src = parse_connection(conn_str)
-    if debug:
-        print("Parsed connection:\n", src)
-    if not src:
-        sys.stderr.write("Error: 'def download' can't parse connection string\n" +
-                         conn_str + "\n")
-        sys.exit(2)
-    ftp = ftput.FTP(
-        host=src['host'],
-        user=src['user'],
-        passwd=src['passwd'],
-        port=src['port'],
-        debug=debug
-    )
-    if ftp.isdir(src['path']):
-        if os.path.isdir(dest):
-            dest = os.path.join(dest, os.path.basename(src['path']))
-        return download_dir(src['path'], dest, ftp, overwrite)
-    else:
-        if os.path.isfile(dest) and not overwrite:
-            sys.stderr.write("Error: file '" + dest + "' already exist\n")
-            sys.exit(111)
-        if os.path.isdir(dest):
-            dest = os.path.join(dest, os.path.basename(src['path']))
-        return download_file(src['path'], dest, ftp)
+            if os.path.isfile(dest) and not self.overwrite:
+                sys.stderr.write("Error: file '" + dest + "' already exist\n")
+                sys.exit(111)
+            if os.path.isdir(dest):
+                dest = os.path.join(dest, os.path.basename(self.src['path']))
+            return self.download_file(self.src['path'], dest)
 
 
 def main():
@@ -241,13 +250,8 @@ def main():
     elif args.to is None:
         sys.stderr.write("Error: 'to' isn't set\n")
         sys.exit(3)
-    if args.fromm.startswith('ftp://'):
-        download(args.fromm, args.to, args.overwrite, args.debug)
-    elif args.to.startswith('ftp://'):
-        upload(args.fromm, args.to, args.overwrite, args.debug)
-    else:
-        sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
-        sys.exit(3)
+    t = TransferTask(args.fromm, args.to, args.overwrite, args.debug)
+    t.start()
 
 if __name__ == "__main__":
     main()

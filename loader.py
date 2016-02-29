@@ -90,7 +90,7 @@ def parse_connection(conn):
 
 class TransferTask:
 
-    def __init__(self, src, dest, overwrite, debug):
+    def __init__(self, src, dest, overwrite=None, debug=False):
         """
         :type src: str or unicode
         :type dest: str or unicode
@@ -112,6 +112,30 @@ class TransferTask:
             sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
             sys.exit(3)
 
+    def check_overwrite(self, path):
+        """
+
+        :type path: str or unicode
+        :rtype: bool
+        """
+        if self.overwrite is None:
+            if sys.version[0] == '2':
+                choice = raw_input("Overwrite '" + path + "'? [Yes/No/All/None] ")
+            else:
+                choice = input("Overwrite '" + path + "'? [Yes/No/All/None] ")
+            choice = choice.lower()
+            if len(choice) == 0:
+                return False
+            elif choice[0] == 'y':
+                return True
+            elif choice[0] == 'a':
+                self.overwrite = True
+                return True
+            elif choice[0] == 'n':
+                self.overwrite = False
+                return False
+        return self.overwrite
+
     def upload_file(self, src, dest):
         """ Uploads one file to ftp server
 
@@ -131,12 +155,10 @@ class TransferTask:
         if not self.ftp.isdir(dest) and not self.ftp.isfile(dest):
             self.ftp.mkdir(dest)
         elif self.ftp.isfile(dest):
-            if self.overwrite:
+            if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 self.ftp.rm(dest)
                 self.ftp.mkdir(dest)
-            else:
-                # TODO overwrite handle
-                return True
+            return True
         for name in os.listdir(src):
             if os.path.isdir(os.path.join(src, name)):
                 self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
@@ -194,12 +216,10 @@ class TransferTask:
         if not os.path.isdir(dest) and not os.path.isfile(dest):
             os.mkdir(dest)
         elif os.path.isfile(dest):
-            if self.overwrite:
+            if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 os.remove(dest)
                 os.mkdir(dest)
-            else:
-                # TODO overwrite handle
-                return True
+            return True
         for name in self.ftp.ls(src):
             if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
                 continue

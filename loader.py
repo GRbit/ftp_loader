@@ -204,6 +204,8 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
+        if self.debug > 0:
+            print("Start upload file", src, "to", dest)
         return self.ftp.store(src, dest)
 
     @check_logs
@@ -214,6 +216,8 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
+        if self.debug > 0:
+            print("Start upload dir", src, "to", dest)
         if not self.ftp.isdir(dest) and not self.ftp.isfile(dest):
             self.ftp.mkdir(dest)
         elif self.ftp.isfile(dest):
@@ -239,7 +243,7 @@ class TransferTask:
         :rtype: bool
         """
         self.dest = parse_connection(conn_str)
-        if self.debug:
+        if self.debug > 0:
             print("Parsed connection:\n", self.dest)
         if not self.dest:
             sys.stderr.write("Error: can't parse connection string\n" +
@@ -270,6 +274,8 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
+        if self.debug > 0:
+            print("Start download file", src, "to", dest)
         return self.ftp.retrieve(src, dest)
 
     @check_logs
@@ -280,6 +286,8 @@ class TransferTask:
         :type dest: str or unicode
         :rtype bool
         """
+        if self.debug > 0:
+            print("Start download dir", src, "to", dest)
         if not os.path.isdir(dest) and not os.path.exists(dest):
             os.mkdir(dest)
         elif os.path.isfile(dest):
@@ -306,7 +314,7 @@ class TransferTask:
         :type dest: str or unicode
         """
         self.src = parse_connection(conn_str)
-        if self.debug:
+        if self.debug > 0:
             print("Parsed connection:\n", self.src)
         if not self.src:
             sys.stderr.write("Error: 'download()' can't parse connection string\n" +

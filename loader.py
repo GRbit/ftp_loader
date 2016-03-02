@@ -1,5 +1,4 @@
-# TODO overwrite check
-# TODO log info about transmitted data
+# TODO check log to ensure that all data copied
 # TODO resume using log files
 
 import sys
@@ -155,9 +154,7 @@ class TransferTask:
 
     def write_logs(self):
         if not self.old_log == self.log:
-            self.logfile
             pickle.dump(self.log, self.logfile)
-            os.fsync(self.logfile)
             self.old_log = self.log.copy()
         if not self.end:
             Timer(1.0, self.write_logs).start()
@@ -226,12 +223,13 @@ class TransferTask:
                 self.ftp.mkdir(dest)
             else:
                 return True
-        complete = False
+        complete = True
         for name in os.listdir(src):
             if os.path.isdir(os.path.join(src, name)):
-                complete = complete and self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
+                t = self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
             else:
-                complete = complete and self.upload_file(os.path.join(src, name), os.path.join(dest, name))
+                t = self.upload_file(os.path.join(src, name), os.path.join(dest, name))
+            complete = complete and t
         return complete
 
     @check_logs
@@ -296,14 +294,15 @@ class TransferTask:
                 os.mkdir(dest)
             else:
                 return True
-        complete = False
+        complete = True
         for name in self.ftp.ls(src):
             if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
                 continue
             if self.ftp.isdir(name):
-                complete = complete and self.download_dir(name, os.path.join(dest, os.path.basename(name)))
+                t = self.download_dir(name, os.path.join(dest, os.path.basename(name)))
             else:
-                complete = complete and self.download_file(name, os.path.join(dest, os.path.basename(name)))
+                t = self.download_file(name, os.path.join(dest, os.path.basename(name)))
+            complete = complete and t
         return complete
 
     @check_logs

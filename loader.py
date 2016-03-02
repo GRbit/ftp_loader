@@ -156,7 +156,7 @@ class TransferTask:
     def write_logs(self):
         if not self.old_log == self.log:
             self.logfile.seek(0)
-            pickle.dump(self.log, self.logfile)
+            pickle.dump(self.log, self.logfile, 0)
             self.old_log = self.log.copy()
         if not self.end:
             Timer(1.0, self.write_logs).start()

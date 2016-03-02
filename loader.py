@@ -7,6 +7,7 @@ import os
 import argparse
 import hashlib
 import pickle
+from threading import Timer
 
 import ftput
 
@@ -44,8 +45,8 @@ def get_options():
     args.add_argument(
         "-o",
         "--overwrite",
-        type=bool,
         default=None,
+        action='store_true',
         help="if enabled, then overwrite"
     )
     args.add_argument(
@@ -130,6 +131,7 @@ class TransferTask:
         self.dest = dest
         self.overwrite = overwrite
         self.debug = debug
+        self.end = False
         self.init_log(logfile)
         self.ftp = None
 
@@ -148,6 +150,17 @@ class TransferTask:
             f = f.hexdigest() + ".progress"
             self.logfile = open(f, 'wb+')
             self.log = dict()
+        self.old_log = self.log.copy()
+        self.write_logs()
+
+    def write_logs(self):
+        if not self.old_log == self.log:
+            self.logfile
+            pickle.dump(self.log, self.logfile)
+            os.fsync(self.logfile)
+            self.old_log = self.log.copy()
+        if not self.end:
+            Timer(1.0, self.write_logs).start()
 
     def start(self):
         if self.src.startswith('ftp://'):
@@ -157,6 +170,7 @@ class TransferTask:
         else:
             sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
             sys.exit(3)
+        self.end = True
 
     def check_overwrite(self, path):
         """

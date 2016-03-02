@@ -1,5 +1,6 @@
 # TODO check log to ensure that all data copied
 # TODO resume using log files
+# TODO resuming file transfer on specific bytes
 
 import sys
 import os
@@ -154,6 +155,7 @@ class TransferTask:
 
     def write_logs(self):
         if not self.old_log == self.log:
+            self.logfile.seek(0)
             pickle.dump(self.log, self.logfile)
             self.old_log = self.log.copy()
         if not self.end:
@@ -203,6 +205,13 @@ class TransferTask:
         """
         if self.debug > 0:
             print("Start upload file", src, "to", dest)
+        if self.ftp.isfile(dest) or self.ftp.isdir(dest):
+            if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
+                if self.debug > 0:
+                    print(dest, "will be overwritten")
+                self.ftp.rm(dest)
+            else:
+                return True
         return self.ftp.store(src, dest)
 
     @check_logs
@@ -219,6 +228,8 @@ class TransferTask:
             self.ftp.mkdir(dest)
         elif self.ftp.isfile(dest):
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
+                if self.debug > 0:
+                    print(dest, "overwritten")
                 self.ftp.rm(dest)
                 self.ftp.mkdir(dest)
             else:
@@ -274,6 +285,13 @@ class TransferTask:
         """
         if self.debug > 0:
             print("Start download file", src, "to", dest)
+        if os.path.exists(dest):
+            if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
+                if self.debug > 0:
+                    print(dest, "will be overwritten")
+                self.ftp.rm(dest)
+            else:
+                return True
         return self.ftp.retrieve(src, dest)
 
     @check_logs

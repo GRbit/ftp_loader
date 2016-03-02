@@ -5,6 +5,8 @@
 import sys
 import os
 import argparse
+import hashlib
+import pickle
 
 import ftput
 
@@ -43,8 +45,23 @@ def get_options():
         "-o",
         "--overwrite",
         type=bool,
-        default=False,
-        help="path from directory/file will be loaded"
+        default=None,
+        help="if enabled, then overwrite"
+    )
+    args.add_argument(
+        "-l",
+        "--logfile",
+        type=str,
+        default='',
+        help="path to logfile"
+    )
+    # TODO actually use this
+    args.add_argument(
+        "-r",
+        "--resume",
+        type=bool,
+        default=True,
+        help="resume from ready log file"
     )
     return args
 
@@ -88,9 +105,21 @@ def parse_connection(conn):
         return parsed_conn
 
 
+def check_logs(func):
+    def checked_transfer(self, src, dest):
+        task = src + " to " + dest
+        if task not in self.log:
+            self.log[task] = False
+        # TODO check if log is a number, so resume transfer from this number
+        if not self.log[task]:
+            self.log[task] = func(self, src, dest)
+        return self.log[task]
+    return checked_transfer
+
+
 class TransferTask:
 
-    def __init__(self, src, dest, overwrite=None, debug=False):
+    def __init__(self, src, dest, overwrite=None, logfile='', debug=False):
         """
         :type src: str or unicode
         :type dest: str or unicode
@@ -101,7 +130,24 @@ class TransferTask:
         self.dest = dest
         self.overwrite = overwrite
         self.debug = debug
+        self.init_log(logfile)
         self.ftp = None
+
+    def init_log(self, logfile):
+        if logfile:
+            self.logfile = open(logfile, 'rb+')
+            self.log = pickle.load(self.logfile)
+        else:
+            f = self.src + self.dest + os.getcwd()
+            if sys.version[0] == '3':
+                f = f.encode('utf-8')
+            f = hashlib.md5(f)
+            #while os.path.exists(f.hexdigest() + ".progress"):
+                #f = hashlib.md5(f.digest())
+                # TODO check if it's folder or whatever
+            f = f.hexdigest() + ".progress"
+            self.logfile = open(f, 'wb+')
+            self.log = dict()
 
     def start(self):
         if self.src.startswith('ftp://'):
@@ -136,6 +182,7 @@ class TransferTask:
                 return False
         return self.overwrite
 
+    @check_logs
     def upload_file(self, src, dest):
         """ Uploads one file to ftp server
 
@@ -145,6 +192,7 @@ class TransferTask:
         """
         return self.ftp.store(src, dest)
 
+    @check_logs
     def upload_dir(self, src, dest):
         """ Uploads dir to ftp server
 
@@ -158,14 +206,17 @@ class TransferTask:
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 self.ftp.rm(dest)
                 self.ftp.mkdir(dest)
-            return True
+            else:
+                return True
+        complete = False
         for name in os.listdir(src):
             if os.path.isdir(os.path.join(src, name)):
-                self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
+                complete = complete and self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
             else:
-                self.upload_file(os.path.join(src, name), os.path.join(dest, name))
-        return True
+                complete = complete and self.upload_file(os.path.join(src, name), os.path.join(dest, name))
+        return complete
 
+    @check_logs
     def upload(self, src, conn_str):
         """
 
@@ -197,6 +248,7 @@ class TransferTask:
                          src + "\n")
         sys.exit(2)
 
+    @check_logs
     def download_file(self, src, dest):
         """
 
@@ -206,29 +258,33 @@ class TransferTask:
         """
         return self.ftp.retrieve(src, dest)
 
+    @check_logs
     def download_dir(self, src, dest):
         """
 
         :type src: str or unicode
         :type dest: str or unicode
-        :rtype bool"
+        :rtype bool
         """
-        if not os.path.isdir(dest) and not os.path.isfile(dest):
+        if not os.path.isdir(dest) and not os.path.exists(dest):
             os.mkdir(dest)
         elif os.path.isfile(dest):
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 os.remove(dest)
                 os.mkdir(dest)
-            return True
+            else:
+                return True
+        complete = False
         for name in self.ftp.ls(src):
             if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
                 continue
             if self.ftp.isdir(name):
-                self.download_dir(name, os.path.join(dest, os.path.basename(name)))
+                complete = complete and self.download_dir(name, os.path.join(dest, os.path.basename(name)))
             else:
-                self.download_file(name, os.path.join(dest, os.path.basename(name)))
-        return True
+                complete = complete and self.download_file(name, os.path.join(dest, os.path.basename(name)))
+        return complete
 
+    @check_logs
     def download(self, conn_str, dest):
         """
 
@@ -270,7 +326,7 @@ def main():
     elif args.to is None:
         sys.stderr.write("Error: 'to' isn't set\n")
         sys.exit(3)
-    t = TransferTask(args.fromm, args.to, args.overwrite, args.debug)
+    t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.debug)
     t.start()
 
 if __name__ == "__main__":

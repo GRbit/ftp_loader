@@ -1,4 +1,4 @@
-# TODO check log to ensure that all data copied
+# TODO handle timeout when transferring really big file
 # TODO resuming file transfer on specific bytes
 
 import sys
@@ -61,6 +61,12 @@ def get_options():
         type=bool,
         default=True,
         help="resume from ready log file"
+    )
+    args.add_argument(
+        "--tries",
+        type=int,
+        default=5,
+        help="number of tries to transfer files"
     )
     return args
 
@@ -158,6 +164,17 @@ class TransferTask:
                 self.log = dict()
         self.old_log = self.log.copy()
         self.write_logs()
+
+    @property
+    def finished(self):
+        """
+        :rtype: bool
+        """
+        task_key = self.src + "to" + self.dest
+        if task_key in self.log:
+            return self.log[self.src + "to" + self.dest]
+        else:
+            return False
 
     def write_logs(self):
         if not self.old_log == self.log:
@@ -371,8 +388,11 @@ def main():
     elif args.to is None:
         sys.stderr.write("Error: 'to' isn't set\n")
         sys.exit(3)
-    t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.debug)
-    t.start()
+    t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.resume, args.debug)
+    tries = 0
+    while not t.finished and tries < args.tries:
+        t.start()
+        tries += 1
 
 if __name__ == "__main__":
     main()

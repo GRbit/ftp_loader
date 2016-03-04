@@ -179,19 +179,19 @@ class TransferTask:
         """
         if self.overwrite is None:
             if sys.version[0] == '2':
-                choice = raw_input("Overwrite '" + path + "'? [Yes/No/All/None] ")
+                choice = raw_input("Overwrite '" + path + "'? Yes/[No]/All/None : ")
             else:
-                choice = input("Overwrite '" + path + "'? [Yes/No/All/None] ")
+                choice = input("Overwrite '" + path + "'? Yes/[No]/All/None : ")
             choice = choice.lower()
-            if len(choice) == 0:
-                return False
-            elif choice[0] == 'y':
+            if choice.startswith('y'):
                 return True
-            elif choice[0] == 'a':
+            elif choice.startswith('a'):
                 self.overwrite = True
                 return True
-            elif choice[0] == 'n':
+            elif choice.startswith('non'):
                 self.overwrite = False
+                return False
+            else:
                 return False
         return self.overwrite
 

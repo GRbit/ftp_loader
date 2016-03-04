@@ -1,5 +1,4 @@
 # TODO check log to ensure that all data copied
-# TODO resume using log files
 # TODO resuming file transfer on specific bytes
 
 import sys
@@ -56,7 +55,6 @@ def get_options():
         default='',
         help="path to logfile"
     )
-    # TODO actually use this
     args.add_argument(
         "-r",
         "--resume",
@@ -120,36 +118,44 @@ def check_logs(func):
 
 class TransferTask:
 
-    def __init__(self, src, dest, overwrite=None, logfile='', debug=False):
+    def __init__(self, src, dest, overwrite=None, logfile='', resume=True, debug=False):
         """
         :type src: str or unicode
         :type dest: str or unicode
         :type overwrite: bool
         :type debug: int
         """
+        self.ftp, self.log, self.old_log, self.logfile = None, None, None, None
         self.src = src
         self.dest = dest
         self.overwrite = overwrite
         self.debug = debug
         self.end = False
-        self.init_log(logfile)
-        self.ftp = None
+        self.init_log(logfile, resume)
 
-    def init_log(self, logfile):
+    def init_log(self, logfile, resume):
         if logfile:
             self.logfile = open(logfile, 'rb+')
             self.log = pickle.load(self.logfile)
         else:
-            f = self.src + self.dest + os.getcwd()
+            h = self.src + self.dest + os.getcwd()
             if sys.version[0] == '3':
-                f = f.encode('utf-8')
-            f = hashlib.md5(f)
-            #while os.path.exists(f.hexdigest() + ".progress"):
-                #f = hashlib.md5(f.digest())
-                # TODO check if it's folder or whatever
-            f = f.hexdigest() + ".progress"
-            self.logfile = open(f, 'wb+')
-            self.log = dict()
+                h = h.encode('utf-8')
+            h = hashlib.md5(h)
+            f = h.hexdigest() + ".progress"
+            if resume and os.path.exists(f):
+                self.logfile = open(f, 'rb+')
+                try:
+                    self.log = pickle.load(f)
+                except AttributeError:
+                    self.log = dict()
+            else:
+                while os.path.exists(h.hexdigest() + ".progress"):
+                    h = hashlib.md5(h.digest())
+                    # TODO check if it's folder or whatever
+                f = h.hexdigest() + ".progress"
+                self.logfile = open(f, 'wb+')
+                self.log = dict()
         self.old_log = self.log.copy()
         self.write_logs()
 

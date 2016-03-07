@@ -110,76 +110,46 @@ def parse_connection(conn):
         return parsed_conn
 
 
-def check_logs(func):
-    def checked_transfer(self, src, dest):
-        task = src + " to " + dest
-        if task not in self.log:
-            self.log[task] = False
-        # TODO check if log is a number, so resume transfer from this number
-        if not self.log[task]:
-            self.log[task] = func(self, src, dest)
-        return self.log[task]
-    return checked_transfer
+class Logger:
 
-
-class TransferTask:
-
-    def __init__(self, src, dest, overwrite=None, logfile='', resume=True, debug=False):
-        """
-        :type src: str or unicode
-        :type dest: str or unicode
-        :type overwrite: bool
-        :type debug: int
-        """
-        self.ftp = None
-        self.log = None
-        self.old_log = None
+    def __init__(self, start_hash, logpath='', resume=True):
         self.logfile = None
-        self.conn_param = None
-        self.end = False
-        self.src = src
-        self.dest = dest
-        self.overwrite = overwrite
-        self.logfile = logfile
+        self.log = dict()
+        self.old_log = dict()
+        self.logpath = logpath
         self.resume = resume
-        self.debug = debug
+        self.start_hash = start_hash
+        self.end = False
 
-    def init_log(self, logfile, resume):
-        if logfile:
-            self.logfile = open(logfile, 'rb+')
-            self.log = pickle.load(self.logfile)
+    def start(self):
+        if self.logpath:
+            self.logfile = open(self.logpath, 'rb+')
         else:
-            h = self.src + self.dest + os.getcwd()
+            h = self.start_hash
             if sys.version[0] == '3':
                 h = h.encode('utf-8')
             h = hashlib.md5(h)
             f = h.hexdigest() + ".progress"
-            if resume and os.path.exists(f):
+            if self.resume and os.path.exists(f):
                 self.logfile = open(f, 'rb+')
-                try:
-                    self.log = pickle.load(f)
-                except AttributeError:
-                    self.log = dict()
             else:
-                while os.path.exists(h.hexdigest() + ".progress"):
+                while os.path.exists(f):
                     h = hashlib.md5(h.digest())
+                    f = h.hexdigest() + ".progress"
                     # TODO check if it's folder or whatever
-                f = h.hexdigest() + ".progress"
                 self.logfile = open(f, 'wb+')
-                self.log = dict()
+        try:
+            self.log = pickle.load(self.logfile)
+        except EOFError:
+            # file is new or empty
+            self.log = dict()
         self.old_log = self.log.copy()
+        self.end = False
         self.write_logs()
 
-    @property
-    def finished(self):
-        """
-        :rtype: bool
-        """
-        task_key = self.src + "to" + self.dest
-        if task_key in self.log:
-            return self.log[self.src + "to" + self.dest]
-        else:
-            return False
+    def stop(self):
+        self.end = True
+        self.logfile.close()
 
     def write_logs(self):
         if not self.end:
@@ -188,6 +158,50 @@ class TransferTask:
                 self.logfile.seek(0)
                 pickle.dump(self.log, self.logfile, 0)
                 self.old_log = self.log.copy()
+
+
+def check_logs(func):
+    def checked_transfer(self, src, dest):
+        task = src + " to " + dest
+        if task not in self.logger.log:
+            self.logger.log[task] = False
+        # TODO check if log is a number, so resume transfer from this number
+        if not self.logger.log[task]:
+            self.logger.log[task] = func(self, src, dest)
+        return self.logger.log[task]
+    return checked_transfer
+
+
+class TransferTask:
+
+    def __init__(self, src, dest, overwrite=None, logpath='', resume=True, debug=False):
+        """
+        :type src: str or unicode
+        :type dest: str or unicode
+        :type overwrite: bool
+        :type debug: int
+        """
+        self.ftp = None
+        self.conn_param = None
+        self.src = src
+        self.dest = dest
+        self.overwrite = overwrite
+        self.logger = Logger(self.src + self.dest + os.getcwd(),
+                            logpath,
+                            resume)
+        self.resume = resume
+        self.debug = debug
+
+    @property
+    def finished(self):
+        """
+        :rtype: bool
+        """
+        task_key = self.src + "to" + self.dest
+        if task_key in self.logger.log:
+            return self.logger.log[self.src + "to" + self.dest]
+        else:
+            return False
 
     def connect(self, conn_str):
         """
@@ -209,19 +223,19 @@ class TransferTask:
             port=self.conn_param['port'],
             debug=self.debug
         )
+        self.logger.start()
 
     def start(self):
-        self.init_log(self.logfile, self.resume)
         if self.src.startswith('ftp://'):
             self.connect(self.src)
-            self.download()
+            self.download(self.conn_param['path'], self.dest)
         elif self.dest.startswith('ftp://'):
             self.connect(self.dest)
-            self.upload()
+            self.upload(self.src, self.conn_param['path'])
         else:
             sys.stderr.write("Error: 'from' and 'to' are not ftp:// connection string\n")
             sys.exit(3)
-        self.end = True
+        self.logger.stop()
 
     def check_overwrite(self, path):
         """
@@ -294,7 +308,6 @@ class TransferTask:
             complete = complete and t
         return complete
 
-    @check_logs
     def upload(self, src, dest_path):
         """
 
@@ -360,7 +373,6 @@ class TransferTask:
             complete = complete and t
         return complete
 
-    @check_logs
     def download(self, src_path, dest):
         """
 

@@ -1,5 +1,5 @@
-# TODO handle timeout when transferring really big file
 # TODO resuming file transfer on specific bytes
+# TODO delete log file when all transfer completed
 
 import sys
 import os
@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import pickle
 from threading import Timer
+import time
 
 import ftput
 
@@ -110,6 +111,11 @@ def parse_connection(conn):
         return parsed_conn
 
 
+def d_print(s):
+    t = str(time.strftime('%H:%M:%S') + str(time.clock())[1:]).ljust(17)
+    print(t + "DEBUG: " + s )
+
+
 class Logger:
 
     def __init__(self, start_hash, logpath='', resume=True):
@@ -160,7 +166,7 @@ class Logger:
                 self.logfile.seek(0)
                 pickle.dump(thread_log, self.logfile, 0)
                 self.old_log = thread_log.copy()
-            Timer(1.0, self.write_logs).start()
+            Timer(0.33, self.write_logs).start()
 
 
 def check_logs(func):
@@ -170,12 +176,12 @@ def check_logs(func):
             self.logger.log[task] = False
         # TODO check if log is a number, so resume transfer from this number
         if self.debug > 0:
-            print("DEBUG 1: STARTED " + func.__name__ + " ON TASK " + task)
+            d_print("STARTED " + func.__name__ + " ON TASK " + task)
         if not self.logger.log[task]:
             self.logger.log[task] = func(self, src, dest)
         if self.debug > 0:
-            print("DEBUG 1: ENDED " + func.__name__ + " ON TASK " + task)
-            print("DEBUG 1: RETURNED " + str(self.logger.log[task]))
+            d_print("ENDED " + func.__name__ + " ON TASK " + task)
+            d_print("RETURNED " + str(self.logger.log[task]))
         return self.logger.log[task]
     return checked_transfer
 
@@ -223,7 +229,7 @@ class TransferTask:
                              conn_str + "\n")
             sys.exit(2)
         if self.debug > 0:
-            print("DEBUG 1: Parsed connection:")
+            d_print("Parsed connection:")
             print(self.conn_param)
         self.ftp = ftput.FTP(
             host=self.conn_param['host'],
@@ -280,7 +286,7 @@ class TransferTask:
         if self.ftp.isfile(dest) or self.ftp.isdir(dest):
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 if self.debug > 0:
-                    print("DEBUG 1: OVERWRITE " + dest)
+                    d_print("OVERWRITE " + dest)
                 self.ftp.rm(dest)
             else:
                 return True
@@ -299,7 +305,7 @@ class TransferTask:
         elif self.ftp.isfile(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
-                    print("DEBUG 1: OVERWRITE " + dest)
+                    d_print("OVERWRITE " + dest)
                 self.ftp.rm(dest)
                 self.ftp.mkdir(dest)
             else:
@@ -346,7 +352,7 @@ class TransferTask:
         if os.path.exists(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
-                    print("DEBUG 1: OVERWRITE " + dest)
+                    d_print("OVERWRITE " + dest)
                 self.ftp.rm(dest)
             else:
                 return True

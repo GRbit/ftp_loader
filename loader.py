@@ -155,7 +155,7 @@ class Logger:
         if not self.end:
             thread_log = self.log.copy()
             thread_old_log = self.old_log.copy()
-            if not thread_old_log == tmp_log:
+            if not thread_old_log == thread_log:
                 self.logfile.seek(0)
                 pickle.dump(thread_log, self.logfile, 0)
                 self.old_log = thread_log.copy()

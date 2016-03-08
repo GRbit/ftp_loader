@@ -378,16 +378,12 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
+        if os.path.isdir(dest):
+            dest = os.path.join(dest, os.path.basename(src_path))
         if self.ftp.isdir(src_path):
-            if os.path.isdir(dest):
-                dest = os.path.join(dest, os.path.basename(src_path))
             return self.download_dir(src_path, dest)
         else:
-            if os.path.isfile(dest) and self.check_overwrite(dest):
-                return self.download_file(src_path, dest)
-            elif os.path.isdir(dest):
-                dest = os.path.join(dest, os.path.basename(src_path))
-                return self.download_dir(src_path, dest)
+            return self.download_file(src_path, dest)
 
 
 def main():

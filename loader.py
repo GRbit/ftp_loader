@@ -153,11 +153,13 @@ class Logger:
 
     def write_logs(self):
         if not self.end:
-            Timer(1.0, self.write_logs).start()
-            if not self.old_log == self.log:
+            thread_log = self.log.copy()
+            thread_old_log = self.old_log.copy()
+            if not thread_old_log == tmp_log:
                 self.logfile.seek(0)
-                pickle.dump(self.log, self.logfile, 0)
-                self.old_log = self.log.copy()
+                pickle.dump(thread_log, self.logfile, 0)
+                self.old_log = thread_log.copy()
+            Timer(1.0, self.write_logs).start()
 
 
 def check_logs(func):

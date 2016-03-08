@@ -193,6 +193,7 @@ class TransferTask:
         self.conn_param = None
         self.src = src
         self.dest = dest
+        self.task_key = self.src + " to " + self.dest
         self.overwrite = overwrite
         self.logger = Logger(self.src + self.dest + os.getcwd(),
                             logpath,
@@ -205,9 +206,8 @@ class TransferTask:
         """
         :rtype: bool
         """
-        task_key = self.src + "to" + self.dest
-        if task_key in self.logger.log:
-            return self.logger.log[self.src + "to" + self.dest]
+        if self.task_key in self.logger.log:
+            return self.logger.log[self.task_key]
         else:
             return False
 
@@ -324,9 +324,13 @@ class TransferTask:
         if self.ftp.isdir(dest_path):
             dest_path = os.path.join(dest_path, os.path.basename(src))
         if os.path.isfile(src):
-            return self.upload_file(src, dest_path)
+            finished = self.upload_file(src, dest_path)
+            self.logger.log[self.task_key] = finished
+            return finished
         elif os.path.isdir(src):
-            return self.upload_dir(src, dest_path)
+            finished = self.upload_dir(src, dest_path)
+            self.logger.log[self.task_key] = finished
+            return finished
         sys.stderr.write("Error: 'upload()' incorrect file path\n" +
                          src + "\n")
         sys.exit(2)
@@ -385,9 +389,11 @@ class TransferTask:
         if os.path.isdir(dest):
             dest = os.path.join(dest, os.path.basename(src_path))
         if self.ftp.isdir(src_path):
-            return self.download_dir(src_path, dest)
+            finished =  self.download_dir(src_path, dest)
         else:
-            return self.download_file(src_path, dest)
+            finished = self.download_file(src_path, dest)
+        self.logger.log[self.task_key] = finished
+        return finished
 
 
 def main():

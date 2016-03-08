@@ -168,8 +168,12 @@ def check_logs(func):
         if task not in self.logger.log:
             self.logger.log[task] = False
         # TODO check if log is a number, so resume transfer from this number
+        if self.debug > 0:
+            print("STARTED " + func.__name__ + " ON TASK " + task)
         if not self.logger.log[task]:
             self.logger.log[task] = func(self, src, dest)
+        if self.debug > 0:
+            print(task + " RETURNED " + str(self.logger.log[task]))
         return self.logger.log[task]
     return checked_transfer
 
@@ -270,8 +274,6 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
-        if self.debug > 0:
-            print("Start upload file", src, "to", dest)
         if self.ftp.isfile(dest) or self.ftp.isdir(dest):
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 if self.debug > 0:
@@ -289,8 +291,6 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
-        if self.debug > 0:
-            print("Start upload dir", src, "to", dest)
         if not self.ftp.isdir(dest) and not self.ftp.isfile(dest):
             self.ftp.mkdir(dest)
         elif self.ftp.isfile(dest):
@@ -335,8 +335,6 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
-        if self.debug > 0:
-            print("Start download file", src, "to", dest)
         if os.path.exists(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
@@ -354,8 +352,6 @@ class TransferTask:
         :type dest: str or unicode
         :rtype bool
         """
-        if self.debug > 0:
-            print("Start download dir", src, "to", dest)
         if not os.path.isdir(dest) and not os.path.exists(dest):
             os.mkdir(dest)
         elif os.path.isfile(dest):
@@ -405,6 +401,8 @@ def main():
     t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.resume, args.debug)
     tries = 0
     while not t.finished and tries < args.tries:
+        if args.debug and tries > 0:
+            print("\nTransfer not completed... Try number:" + str(tries) + "\n")
         t.start()
         tries += 1
 

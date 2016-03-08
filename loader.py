@@ -353,7 +353,7 @@ class TransferTask:
             if self.check_overwrite(dest):
                 if self.debug > 0:
                     d_print("OVERWRITE " + dest)
-                self.ftp.rm(dest)
+                os.remove(dest)
             else:
                 return True
         return self.ftp.retrieve(src, dest)

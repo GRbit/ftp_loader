@@ -138,11 +138,12 @@ class Logger:
                     f = h.hexdigest() + ".progress"
                     # TODO check if it's folder or whatever
                 self.logfile = open(f, 'wb+')
-        try:
-            self.log = pickle.load(self.logfile)
-        except EOFError:
-            # file is new or empty
-            self.log = dict()
+        if not self.log:
+            try:
+                self.log = pickle.load(self.logfile)
+            except EOFError:
+                # file is new or empty
+                self.log = dict()
         self.old_log = self.log.copy()
         self.end = False
         self.write_logs()
@@ -169,11 +170,12 @@ def check_logs(func):
             self.logger.log[task] = False
         # TODO check if log is a number, so resume transfer from this number
         if self.debug > 0:
-            print("STARTED " + func.__name__ + " ON TASK " + task)
+            print("DEBUG 1: STARTED " + func.__name__ + " ON TASK " + task)
         if not self.logger.log[task]:
             self.logger.log[task] = func(self, src, dest)
         if self.debug > 0:
-            print(task + " RETURNED " + str(self.logger.log[task]))
+            print("DEBUG 1: ENDED " + func.__name__ + " ON TASK " + task)
+            print("DEBUG 1: RETURNED " + str(self.logger.log[task]))
         return self.logger.log[task]
     return checked_transfer
 
@@ -221,7 +223,8 @@ class TransferTask:
                              conn_str + "\n")
             sys.exit(2)
         if self.debug > 0:
-            print("Parsed connection:\n", self.conn_param)
+            print("DEBUG 1: Parsed connection:")
+            print(self.conn_param)
         self.ftp = ftput.FTP(
             host=self.conn_param['host'],
             user=self.conn_param['user'],
@@ -277,7 +280,7 @@ class TransferTask:
         if self.ftp.isfile(dest) or self.ftp.isdir(dest):
             if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
                 if self.debug > 0:
-                    print(dest, "will be overwritten")
+                    print("DEBUG 1: OVERWRITE " + dest)
                 self.ftp.rm(dest)
             else:
                 return True
@@ -296,7 +299,7 @@ class TransferTask:
         elif self.ftp.isfile(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
-                    print(dest, "overwritten")
+                    print("DEBUG 1: OVERWRITE " + dest)
                 self.ftp.rm(dest)
                 self.ftp.mkdir(dest)
             else:
@@ -310,6 +313,7 @@ class TransferTask:
             complete = complete and t
         return complete
 
+    @check_logs
     def upload(self, src, dest_path):
         """
 
@@ -338,7 +342,7 @@ class TransferTask:
         if os.path.exists(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
-                    print(dest, "will be overwritten")
+                    print("DEBUG 1: OVERWRITE " + dest)
                 self.ftp.rm(dest)
             else:
                 return True
@@ -398,9 +402,14 @@ def main():
     tries = 0
     while not t.finished and tries < args.tries:
         if args.debug and tries > 0:
-            print("\nTransfer not completed... Try number:" + str(tries) + "\n")
+            print("\nDEBUG 1:\nTransfer not completed... Try number: " + str(tries) + "\n")
         t.start()
         tries += 1
+    if args.debug > 0:
+        if tries < args.tries:
+            print("\nDEBUG 1:\nTransfer successfully completed. Try number: " + str(tries) + "\n")
+        else:
+            print("\nDEBUG 1:\nTransfer stopped and NOT completed. Tries exceeded: " + str(tries) + "\n")
 
 if __name__ == "__main__":
     main()

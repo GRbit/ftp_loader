@@ -1,4 +1,3 @@
-# TODO / or root fix
 # TODO fucking spaceweb pureFTP recursive ls() fix
 # TODO resuming file transfer on specific bytes
 # TODO delete log file when all transfer completed
@@ -98,7 +97,7 @@ def parse_connection(conn):
             passwd = ''
         if '/' in host:
             host, path = host.split('/', 1)
-        else:
+        if path == '':
             path = '/'
         if ':' in host:
             host, port = host.split(':', 1)

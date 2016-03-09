@@ -375,7 +375,10 @@ class TransferTask:
                 os.remove(dest)
             else:
                 return True
-        return self.ftp.retrieve(src, dest)
+        try:
+            return self.ftp.retrieve(src, dest)
+        except ftput.error.FileUnavailable:
+            return False
 
     @check_logs
     def download_dir(self, src, dest):

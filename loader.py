@@ -157,6 +157,9 @@ class Logger:
 
     def stop(self):
         self.end = True
+        self.logfile.seek(0)
+        pickle.dump(self.log, self.logfile, 0)
+        self.old_log = self.log.copy()
         self.logfile.close()
 
     def write_logs(self):

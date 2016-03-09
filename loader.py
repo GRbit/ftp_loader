@@ -1,3 +1,5 @@
+# TODO / or root fix
+# TODO fucking spaceweb pureFTP recursive ls() fix
 # TODO resuming file transfer on specific bytes
 # TODO delete log file when all transfer completed
 
@@ -175,13 +177,15 @@ def check_logs(func):
         if task not in self.logger.log:
             self.logger.log[task] = False
         # TODO check if log is a number, so resume transfer from this number
-        if self.debug > 0:
-            d_print("STARTED " + func.__name__ + " ON TASK " + task)
         if not self.logger.log[task]:
+            if self.debug > 0:
+                d_print("STARTED " + func.__name__ + " ON TASK " + task)
             self.logger.log[task] = func(self, src, dest)
-        if self.debug > 0:
-            d_print("ENDED " + func.__name__ + " ON TASK " + task)
-            d_print("RETURNED " + str(self.logger.log[task]))
+            if self.debug > 0:
+                d_print("ENDED " + func.__name__ + " ON TASK " + task)
+                d_print("RETURNED " + str(self.logger.log[task]))
+        elif self.debug > 0:
+            d_print("ALREADY TRANSFERRED " + task)
         return self.logger.log[task]
     return checked_transfer
 
@@ -410,18 +414,30 @@ def main():
     elif args.to is None:
         sys.stderr.write("Error: 'to' isn't set\n")
         sys.exit(3)
+    print("\nTransfer starting. Connecting to server...")
     t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.resume, args.debug)
     tries = 0
+    print("\nConnected successfully. Starting file transfer...")
     while not t.finished and tries < args.tries:
         if args.debug and tries > 0:
             print("\nDEBUG 1:\nTransfer not completed... Try number: " + str(tries) + "\n")
         t.start()
         tries += 1
-    if args.debug > 0:
-        if tries < args.tries:
-            print("\nDEBUG 1:\nTransfer successfully completed. Try number: " + str(tries) + "\n")
+
+    if t.finished:
+        print("\nTransfer successfully completed. Try number: " + str(tries) + "\n")
+        if sys.version[0] == '2':
+            choice = raw_input("Delete log file? Yes/[No] : ")
         else:
-            print("\nDEBUG 1:\nTransfer stopped and NOT completed. Tries exceeded: " + str(tries) + "\n")
+            choice = input("Delete log file? Yes/[No] : ")
+        if choice.lower().startswith('y'):
+            os.remove(t.logger.logfile.name)
+    else:
+        print("\nTransfer stopped and NOT completed. Tries exceeded: " + str(tries) + "\n")
+        print("Files that was'n transferred:")
+        for p, c in t.logger.log.items():
+            if c == False:
+                print(p)
 
 if __name__ == "__main__":
     main()

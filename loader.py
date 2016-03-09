@@ -186,8 +186,6 @@ def check_logs(func):
             if self.debug > 0:
                 d_print("ENDED " + func.__name__ + " ON TASK " + task)
                 d_print("RETURNED " + str(self.logger.log[task]))
-        elif self.debug > 0:
-            d_print("ALREADY TRANSFERRED " + task)
         return self.logger.log[task]
     return checked_transfer
 
@@ -281,6 +279,12 @@ class TransferTask:
                 return False
         return self.overwrite
 
+    def transferred(self, src, dest):
+        task = src + " to " + dest
+        if task in self.logger.log and self.logger.log[task]:
+            return True
+        return False
+
     @check_logs
     def upload_file(self, src, dest):
         """ Uploads one file to ftp server
@@ -318,10 +322,16 @@ class TransferTask:
                 return True
         complete = True
         for name in os.listdir(src):
-            if os.path.isdir(os.path.join(src, name)):
-                t = self.upload_dir(os.path.join(src, name), os.path.join(dest, name))
+            src_name = os.path.join(src, os.path.basename(name))
+            dest_name = os.path.join(dest, os.path.basename(name))
+            if self.transferred(src_name, dest_name):
+                if self.debug > 0:
+                    d_print("ALREADY TRANSFERRED " + src_name + " to " + dest_name)
+                t = True
+            elif os.path.isdir(src_name):
+                t = self.upload_dir(src_name, dest_name)
             else:
-                t = self.upload_file(os.path.join(src, name), os.path.join(dest, name))
+                t = self.upload_file(src_name, dest_name)
             complete = complete and t
         return complete
 
@@ -382,12 +392,18 @@ class TransferTask:
                 return True
         complete = True
         for name in self.ftp.ls(src):
-            if (os.path.basename(name) == '.') or (os.path.basename(name) == '..'):
+            src_name = os.path.join(src, os.path.basename(name))
+            dest_name = os.path.join(dest, os.path.basename(name))
+            if (os.path.basename(src_name) == '.') or (os.path.basename(src_name) == '..'):
                 continue
-            if self.ftp.isdir(name):
-                t = self.download_dir(name, os.path.join(dest, os.path.basename(name)))
+            if self.transferred(src_name, dest_name):
+                if self.debug > 0:
+                    d_print("ALREADY TRANSFERRED " + src_name + " to " + dest_name)
+                t = True
+            elif self.ftp.isdir(src_name):
+                t = self.download_dir(src_name, dest_name)
             else:
-                t = self.download_file(name, os.path.join(dest, os.path.basename(name)))
+                t = self.download_file(src_name, dest_name)
             complete = complete and t
         return complete
 
@@ -420,6 +436,7 @@ def main():
     t = TransferTask(args.fromm, args.to, args.overwrite, args.logfile, args.resume, args.debug)
     tries = 0
     print("\nConnected successfully. Starting file transfer...")
+
     while not t.finished and tries < args.tries:
         if args.debug and tries > 0:
             print("\nDEBUG 1:\nTransfer not completed... Try number: " + str(tries) + "\n")

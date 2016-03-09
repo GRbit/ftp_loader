@@ -296,8 +296,8 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
-        if self.ftp.isfile(dest) or self.ftp.isdir(dest):
-            if self.overwrite or (self.overwrite is None) and self.check_overwrite(dest):
+        if self.ftp.exist(dest):
+            if self.check_overwrite(dest):
                 if self.debug > 0:
                     d_print("OVERWRITE " + dest)
                 self.ftp.rm(dest)
@@ -313,16 +313,14 @@ class TransferTask:
         :type dest: str or unicode
         :rtype: bool
         """
-        if not self.ftp.isdir(dest) and not self.ftp.isfile(dest):
-            self.ftp.mkdir(dest)
-        elif self.ftp.isfile(dest):
+        if self.ftp.exist(dest) and not self.ftp.isdir(dest):
             if self.check_overwrite(dest):
                 if self.debug > 0:
                     d_print("OVERWRITE " + dest)
                 self.ftp.rm(dest)
-                self.ftp.mkdir(dest)
             else:
                 return True
+        self.ftp.mkdir(dest)
         complete = True
         for name in os.listdir(src):
             src_name = os.path.join(src, os.path.basename(name))
@@ -338,7 +336,6 @@ class TransferTask:
             complete = complete and t
         return complete
 
-    @check_logs
     def upload(self, src, dest_path):
         """
 
@@ -348,17 +345,17 @@ class TransferTask:
         """
         if self.ftp.isdir(dest_path):
             dest_path = os.path.join(dest_path, os.path.basename(src))
-        if os.path.isfile(src):
-            finished = self.upload_file(src, dest_path)
-            self.logger.log[self.task_key] = finished
-            return finished
-        elif os.path.isdir(src):
+        if os.path.isdir(src):
             finished = self.upload_dir(src, dest_path)
             self.logger.log[self.task_key] = finished
-            return finished
-        sys.stderr.write("Error: 'upload()' incorrect file path\n" +
-                         src + "\n")
-        sys.exit(2)
+        elif os.path.isfile(src):
+            finished = self.upload_file(src, dest_path)
+            self.logger.log[self.task_key] = finished
+        else:
+            sys.stderr.write("Error: upload path doesn't exist or incorrect\n")
+            sys.exit(1)
+        self.logger.log[self.task_key] = finished
+        return finished
 
     @check_logs
     def download_file(self, src, dest):

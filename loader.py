@@ -9,6 +9,7 @@ import hashlib
 import pickle
 from threading import Timer
 import time
+sys.path.append(os.getcwd())
 
 import ftput
 
@@ -97,7 +98,9 @@ def parse_connection(conn):
             passwd = ''
         if '/' in host:
             host, path = host.split('/', 1)
-        if path == '':
+            if not path:
+                path = '/'
+        else:
             path = '/'
         if ':' in host:
             host, port = host.split(':', 1)
@@ -446,10 +449,10 @@ def main():
     if t.finished:
         print("\nTransfer successfully completed. Try number: " + str(tries) + "\n")
         if sys.version[0] == '2':
-            choice = raw_input("Delete log file? Yes/[No] : ")
+            choice = raw_input("Delete log file? [Yes]/No : ")
         else:
-            choice = input("Delete log file? Yes/[No] : ")
-        if choice.lower().startswith('y'):
+            choice = input("Delete log file? [Yes]/No : ")
+        if choice.lower().startswith('n'):
             os.remove(t.logger.logfile.name)
     else:
         print("\nTransfer stopped and NOT completed. Tries exceeded: " + str(tries) + "\n")

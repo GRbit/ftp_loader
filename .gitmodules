@@ -1,0 +1,3 @@
+[submodule "ftput"]
+	path = ftput
+	url = git@github.com:GRbit/ftput.git

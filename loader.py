@@ -28,14 +28,14 @@ def get_options():
         "--to",
         type=str,
         default=None,
-        help="path to directory/file will be loaded"
+        help="ftp/path to directory/file will be loaded"
     )
     args.add_argument(
         "-f",
         "--fromm",
         type=str,
         default=None,
-        help="path from directory/file will be loaded"
+        help="ftp/path from directory/file will be loaded"
     )
     args.add_argument(
         "-d",
@@ -63,7 +63,7 @@ def get_options():
         "--resume",
         type=bool,
         default=True,
-        help="resume from ready log file"
+        help="resume from log file, 1 to resume (default), 0 to not resume"
     )
     args.add_argument(
         "--tries",
@@ -77,7 +77,7 @@ def get_options():
 def parse_connection(conn):
         """ Parse strings like ftp://user:pass@host:port/path
 
-        :type conn: str or unicode
+        :type conn: str
         :rtype: dict
         """
         conn = str(conn)
@@ -116,6 +116,9 @@ def parse_connection(conn):
 
 
 def d_print(s):
+    """
+    :type s: str
+    """
     t = str(time.strftime('%H:%M:%S') + str(time.clock())[1:]).ljust(17)
     print(t + "DEBUG: " + s )
 
@@ -197,8 +200,8 @@ class TransferTask:
 
     def __init__(self, src, dest, overwrite=None, logpath='', resume=True, debug=False):
         """
-        :type src: str or unicode
-        :type dest: str or unicode
+        :type src: str
+        :type dest: str
         :type overwrite: bool
         :type debug: int
         """
@@ -261,7 +264,7 @@ class TransferTask:
 
     def check_overwrite(self, path):
         """
-        :type path: str or unicode
+        :type path: str
         :rtype: bool
         """
         if self.overwrite is None:
@@ -292,8 +295,8 @@ class TransferTask:
     def upload_file(self, src, dest):
         """ Uploads one file to ftp server
 
-        :type src: str or unicode
-        :type dest: str or unicode
+        :type src: str
+        :type dest: str
         :rtype: bool
         """
         if self.ftp.exist(dest):
@@ -309,8 +312,8 @@ class TransferTask:
     def upload_dir(self, src, dest):
         """ Uploads dir to ftp server
 
-        :type src: str or unicode
-        :type dest: str or unicode
+        :type src: str
+        :type dest: str
         :rtype: bool
         """
         if self.ftp.exist(dest) and not self.ftp.isdir(dest):
@@ -339,8 +342,8 @@ class TransferTask:
     def upload(self, src, dest_path):
         """
 
-        :type src: str or unicode
-        :type dest_path: str or unicode
+        :type src: str
+        :type dest_path: str
         :rtype: bool
         """
         if self.ftp.isdir(dest_path):
@@ -361,8 +364,8 @@ class TransferTask:
     def download_file(self, src, dest):
         """
 
-        :type src: str or unicode
-        :type dest: str or unicode
+        :type src: str
+        :type dest: str
         :rtype: bool
         """
         if os.path.exists(dest):
@@ -381,8 +384,8 @@ class TransferTask:
     def download_dir(self, src, dest):
         """
 
-        :type src: str or unicode
-        :type dest: str or unicode
+        :type src: str
+        :type dest: str
         :rtype bool
         """
         if not os.path.isdir(dest) and not os.path.exists(dest):
@@ -413,8 +416,8 @@ class TransferTask:
     def download(self, src_path, dest):
         """
 
-        :type src_path: str or unicode
-        :type dest: str or unicode
+        :type src_path: str
+        :type dest: str
         :rtype: bool
         """
         if os.path.isdir(dest):

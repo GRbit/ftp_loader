@@ -1,3 +1,4 @@
 [submodule "ftput"]
-	path = ftput
-	url = git@github.com:GRbit/ftput.git
+    path = ftput
+    url = git@github.com:GRbit/ftput.git
+    branch = master

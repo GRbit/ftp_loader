@@ -75,44 +75,44 @@ def get_options():
 
 
 def parse_connection(conn):
-        """ Parse strings like ftp://user:pass@host:port/path
+    """ Parse strings like ftp://user:pass@host:port/path
 
-        :type conn: str
-        :rtype: dict
-        """
-        conn = str(conn)
-        if conn.startswith('ftp://'):
-            conn = conn[6:]
+    :type conn: str
+    :rtype: dict
+    """
+    conn = str(conn)
+    if conn.startswith('ftp://'):
+        conn = conn[6:]
+    else:
+        return False
+    if '@' in conn:
+        auth, host = conn.rsplit('@', 1)
+        if ':' in auth:
+            user, passwd = auth.split(':', 1)
         else:
-            return False
-        if '@' in conn:
-            auth, host = conn.rsplit('@', 1)
-            if ':' in auth:
-                user, passwd = auth.split(':', 1)
-            else:
-                user = auth
-                passwd = ''
-        else:
-            host = conn
-            user = 'anonymous'
+            user = auth
             passwd = ''
-        if '/' in host:
-            host, path = host.split('/', 1)
-            if not path:
-                path = '/'
-        else:
+    else:
+        host = conn
+        user = 'anonymous'
+        passwd = ''
+    if '/' in host:
+        host, path = host.split('/', 1)
+        if not path:
             path = '/'
-        if ':' in host:
-            host, port = host.split(':', 1)
-            port = int(port)
-        else:
-            port = 21
-        parsed_conn = {'user': user,
-                       'passwd': passwd,
-                       'host': host,
-                       'port': port,
-                       'path': path}
-        return parsed_conn
+    else:
+        path = '/'
+    if ':' in host:
+        host, port = host.split(':', 1)
+        port = int(port)
+    else:
+        port = 21
+    parsed_conn = {'user': user,
+                   'passwd': passwd,
+                   'host': host,
+                   'port': port,
+                   'path': path}
+    return parsed_conn
 
 
 def d_print(s):
